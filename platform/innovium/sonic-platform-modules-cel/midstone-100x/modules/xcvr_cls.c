@@ -2,7 +2,7 @@
 /*
  * xcvr-cls.c - front panel port control.
  *
- * Pradchaya Phucharoen <pphuchar@celestica.com>
+ * Nicholas Wu <nicwu@celestica.com>
  * Copyright (C) 2019 Celestica Corp.
  */
 
@@ -13,24 +13,28 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/hwmon.h>
-#include "xcvr-cls.h"
+#include "fpga_xcvr.h"
 
 /* FPGA front panel  */
-
-#define PORT_STATUS         0x0004
-
+#define PORT_TEST           0
+#define PORT_CR_STATUS      0x4
 
 /*
  * Port control degister
- * LPMOD    : active high, RW
- * RST      : active low,  RW
  * TXDIS    : active high, RW
 */
-#define CTRL_TXDISABLE      BIT(3)
-#define CTRL_TXFAULT        BIT(2)
-#define CTRL_ABSMOD         BIT(1)
-#define CTRL_RXLOS          BIT(0)
 
+#define CTRL_TXDIS      BIT(3)
+
+/*
+ * Port status register
+ * TXFAULT  : active high, RO
+ * RXLOS    : active high, RO
+ * MODABS   : active high, RO, for SFP
+*/
+#define STAT_TXFAULT    BIT(2)
+#define STAT_MODABS     BIT(1)
+#define STAT_RXLOS      BIT(0)
 
 /*
  * port_data - optical port data
@@ -69,17 +73,15 @@ static inline u8 port_getreg(struct xcvr_priv *xcvr, int reg, int index)
 	return ioread8(xcvr->base + reg + (index - 1) * xcvr->port_reg_size);
 }
 
-
-
-static ssize_t sfp_txdisable_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
+static ssize_t sfp_modabs_show(struct device *dev, 
+			       struct device_attribute *attr, char *buf)
 {
 	u8 data;
 	struct port_data *port_data = dev_get_drvdata(dev);
 	unsigned int index = port_data->index;
 
-	data = port_getreg(port_data->xcvr, PORT_STATUS, index);
-	return sprintf(buf, "%d\n", (data & CTRL_TXDISABLE)?1:0);
+	data = port_getreg(port_data->xcvr, PORT_CR_STATUS, index);
+	return sprintf(buf, "%d\n", (data & STAT_MODABS)?1:0);
 }
 
 static ssize_t sfp_txfault_show(struct device *dev, 
@@ -89,23 +91,9 @@ static ssize_t sfp_txfault_show(struct device *dev,
 	struct port_data *port_data = dev_get_drvdata(dev);
 	unsigned int index = port_data->index;
 
-	data = port_getreg(port_data->xcvr, PORT_STATUS, index);
-	return sprintf(buf, "%d\n", (data & CTRL_TXFAULT)?1:0);
+	data = port_getreg(port_data->xcvr, PORT_CR_STATUS, index);
+	return sprintf(buf, "%d\n", (data & STAT_TXFAULT)?1:0);
 }
-
-
-static ssize_t sfp_modabs_show(struct device *dev, 
-			       struct device_attribute *attr, char *buf)
-{
-	u8 data;
-	struct port_data *port_data = dev_get_drvdata(dev);
-	unsigned int index = port_data->index;
-
-	data = port_getreg(port_data->xcvr, PORT_STATUS, index);
-	return sprintf(buf, "%d\n", (data & CTRL_ABSMOD)?1:0);
-}
-
-
 
 static ssize_t sfp_rxlos_show(struct device *dev, 
 			      struct device_attribute *attr, char *buf)
@@ -114,10 +102,20 @@ static ssize_t sfp_rxlos_show(struct device *dev,
 	struct port_data *port_data = dev_get_drvdata(dev);
 	unsigned int index = port_data->index;
 
-	data = port_getreg(port_data->xcvr, PORT_STATUS, index);
-	return sprintf(buf, "%d\n", (data & CTRL_RXLOS)?1:0);
+	data = port_getreg(port_data->xcvr, PORT_CR_STATUS, index);
+	return sprintf(buf, "%d\n", (data & STAT_RXLOS)?1:0);
 }
 
+static ssize_t sfp_txdisable_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	u8 data;
+	struct port_data *port_data = dev_get_drvdata(dev);
+	unsigned int index = port_data->index;
+
+	data = port_getreg(port_data->xcvr, PORT_CR_STATUS, index);
+	return sprintf(buf, "%d\n", (data & CTRL_TXDIS)?1:0);
+}
 
 static ssize_t sfp_txdisable_store(struct device *dev, 
 				   struct device_attribute *attr, 
@@ -131,24 +129,21 @@ static ssize_t sfp_txdisable_store(struct device *dev,
 
 	status = kstrtol(buf, 0, &value);
 	if (status == 0) {
-		data = port_getreg(port_data->xcvr, PORT_STATUS, index);
+		data = port_getreg(port_data->xcvr, PORT_CR_STATUS, index);
 		if (value == 0)
-			data &= ~CTRL_TXDISABLE;
+			data &= ~CTRL_TXDIS;
 		else
-			data |= CTRL_TXDISABLE;
-		port_setreg(port_data->xcvr, PORT_STATUS, index, data);
+			data |= CTRL_TXDIS;
+		port_setreg(port_data->xcvr, PORT_CR_STATUS, index, data);
 		status = size;
 	}
 	return status;
 }
 
-
-
 DEVICE_ATTR_RO(sfp_modabs);
 DEVICE_ATTR_RO(sfp_txfault);
 DEVICE_ATTR_RO(sfp_rxlos);
 DEVICE_ATTR_RW(sfp_txdisable);
-
 
 /* sfp_attrs */
 static struct attribute *sfp_attrs[] = {
@@ -156,12 +151,9 @@ static struct attribute *sfp_attrs[] = {
 	&dev_attr_sfp_txfault.attr,
 	&dev_attr_sfp_rxlos.attr,
 	&dev_attr_sfp_txdisable.attr,
-//	&dev_attr_interrupt.attr,
-//	&dev_attr_interrupt_mask.attr,
 	NULL
 };
 
-//ATTRIBUTE_GROUPS(qsfp);
 ATTRIBUTE_GROUPS(sfp);
 
 /* A single port device init */
@@ -253,18 +245,10 @@ static int cls_xcvr_probe(struct platform_device *pdev)
 		/* create each device attrs group determined by type */
 		for (i = 0; i < pdata->num_ports; i++) {
 			struct device *fp_dev;
-
-//	if (pdata->devices[i].type == SFP){
 			fp_dev = init_port(&pdev->dev,
 					   xcvr, 
 					   pdata->devices[i], 
 					   sfp_groups);
-//	}else{
-//		fp_dev = init_port(&pdev->dev,
-//				   xcvr,  
-//			   pdata->devices[i], 
-//				   qsfp_groups);
-//	}
 			if (IS_ERR(fp_dev)) {
 				dev_err(&pdev->dev, 
 					"Failed to init port %s\n", 
@@ -304,8 +288,7 @@ static int cls_xcvr_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-static struct platform_driver cls_xcvr_driver_lc = {
+static struct platform_driver cls_xcvr_driver = {
 	.probe = cls_xcvr_probe,
 	.remove = cls_xcvr_remove,
 	.driver = {
@@ -313,35 +296,24 @@ static struct platform_driver cls_xcvr_driver_lc = {
 	},
 };
 
-#if 0
-static struct platform_driver cls_xcvr_driver_lc2 = {
-	.probe = cls_xcvr_probe,
-	.remove = cls_xcvr_remove,
-	.driver = {
-		.name = "cls-xcvr1",
-	},
-};
-#endif
 static int __init drv_init(void)
 {
 	int rc = 0;
-	rc = platform_driver_register(&cls_xcvr_driver_lc);
-//	rc |= platform_driver_register(&cls_xcvr_driver_lc2);
+	rc = platform_driver_register(&cls_xcvr_driver);
 	return rc; 
 }
 
 static void __exit drv_exit(void)
 {
-    platform_driver_unregister(&cls_xcvr_driver_lc);
-//	platform_driver_unregister(&cls_xcvr_driver_lc2);
+    platform_driver_unregister(&cls_xcvr_driver);
 }
 
 module_init(drv_init);
 module_exit(drv_exit);
 
-MODULE_AUTHOR("Pradchaya Phucharoen<pphuchar@celestica.com>");
+MODULE_AUTHOR("Nicholas Wu<nicwu@celestica.com>");
 MODULE_DESCRIPTION("Celestica xcvr control driver");
-MODULE_VERSION("0.0.1-3");
+MODULE_VERSION("2.0.0");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:cls-xcvr");
 

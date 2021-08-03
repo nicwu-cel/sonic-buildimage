@@ -503,6 +503,12 @@ static struct device * cloverstone_dp_sff_init(struct device *dev, int portid) {
 	struct sff_device_data *new_data;
     struct device *new_device;
 	int device_id = 0;
+	char port_map[4][16] = {
+			{1, 2, 33, 34, 3, 4, 35, 36, 5, 6, 37, 38, 7, 8, 39, 40}, 
+			{9, 10, 41, 42, 11, 12, 43, 44, 13, 14, 45, 46, 15, 16, 47, 48}, 
+			{17, 18, 49, 50, 19, 20, 51, 52, 21, 22, 53, 54, 23, 24, 55, 56}, 
+			{25, 26, 57, 58, 27, 28, 59, 60, 29, 30, 61, 62, 31, 32, 63, 64}
+		};
 	
     new_data = kzalloc(sizeof(*new_data), GFP_KERNEL);
     if (!new_data) {
@@ -534,7 +540,7 @@ static struct device * cloverstone_dp_sff_init(struct device *dev, int portid) {
 		}
 		break;
 	}
-
+	
 	/* CPLD1(0x30) control QSFP(1-16) and CPLD1(0x32) control QSFP(17-32) and SFP(1-2) */
     new_device = device_create_with_groups(data->class, 
                                            NULL,
@@ -542,15 +548,15 @@ static struct device * cloverstone_dp_sff_init(struct device *dev, int portid) {
                                            new_data, 
                                            sff_attr_grps, 
                                            "%s%d", 
-                                           "QSFP",  (portid + 1) + (device_id * QSFP_PORT_NUM));
+                                           "QSFP",  port_map[device_id][portid]);
 	
 	if (IS_ERR(new_device)) {
-        printk(KERN_ALERT "Cannot create sff device @port%d", (portid + 1) + (device_id * QSFP_PORT_NUM));
+        printk(KERN_ALERT "Cannot create sff device @port%d", port_map[device_id][portid]);
         kfree(new_data);
         return NULL;
     }
 	
-    printk(KERN_INFO "Create sff device @port%d", (portid + 1) + (device_id * QSFP_PORT_NUM));
+    printk(KERN_INFO "Create sff device @port%d", port_map[device_id][portid]);
     return new_device;
 }
 
@@ -676,5 +682,5 @@ module_i2c_driver(switchboard_driver);
 
 MODULE_AUTHOR("Celestica Inc.");
 MODULE_DESCRIPTION("Celestica CPLD switchboard driver");
-MODULE_VERSION("1.0.0");
+MODULE_VERSION("2.0.0");
 MODULE_LICENSE("GPL");
