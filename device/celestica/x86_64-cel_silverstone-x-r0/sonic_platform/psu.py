@@ -222,7 +222,7 @@ class Psu(PsuBase):
 
         if proc.returncode != 0:
             sys.exit(proc.returncode)
-    
+
         return out
 
     def find_value(self, in_string):
@@ -244,10 +244,10 @@ class Psu(PsuBase):
         psu_id = self.psu1_id if self.index == 1 else self.psu2_id
         res_string = self.run_command(self.ipmi_raw + ' ' + psu_id)
         status_byte = self.find_value(res_string)
-        
+
         if status_byte is None:
             return False
-        
+
         presence = ( int(status_byte, 16) >> 0 ) & 1
         if presence:
             return True
@@ -263,10 +263,10 @@ class Psu(PsuBase):
         if self.index is None:
             return False
 
-        psu_id = self.psu1_id if self.index == 1 else self.psu2_id
+        psu_id = self.psu1_id if self.index == 0 else self.psu2_id
         res_string = self.run_command(self.ipmi_raw + ' ' + psu_id)
         status_byte = self.find_value(res_string)
-        
+
         if status_byte is None:
             return False
 

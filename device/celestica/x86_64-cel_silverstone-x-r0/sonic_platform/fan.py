@@ -44,8 +44,8 @@ IPMI_SENSOR_LIST_CMD = "ipmitool sensor"
 IPMI_FRU_MODEL_KEY = "Board Part Number"
 IPMI_FRU_SERIAL_KEY = "Board Serial"
 
-MAX_OUTLET = 24700
-MAX_INLET = 29700
+MAX_OUTLET = 30200
+MAX_INLET = 32000
 SPEED_TOLERANCE = 10
 
 IPMI_PSU_TARGET_SPEED_CMD = "0x3E {} {} 1 0x3B"   # IPMT_OEM_NETFN + 0x3E + {bus} + {8 bit address} + {read count} + 0x3B:PSU FAN SPEED REG

@@ -21,7 +21,7 @@ NUM_FAN = 2
 NUM_PSU = 2
 NUM_THERMAL = 5
 NUM_SFP = 34
-NUM_COMPONENT = 5
+NUM_COMPONENT = 8
 RESET_REGISTER = "0xA106"
 HOST_REBOOT_CAUSE_PATH = "/host/reboot-cause/"
 REBOOT_CAUSE_FILE = "reboot-cause.txt"
@@ -295,20 +295,19 @@ class Chassis(ChassisBase):
             else:
                 content = content << 1
         
-        return int(str(content), 16)
+        return content
         
     def get_transceiver_status(self):
         if not self.sfp_module_initialized:
             self.__initialize_sfp()
 
         content = 0
+        index = 0
         for sfp in self.get_all_sfps():
             if sfp.get_presence():
-                content = content << 1 | 1
-            else:
-                content = content << 1
-        
-        return long(str(content), 16)
+                content = content | (1 << index)
+            index = index + 1
+        return content
         
     def get_change_event(self, timeout=0):
         """

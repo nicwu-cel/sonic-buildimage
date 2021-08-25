@@ -1308,7 +1308,7 @@ class Sfp(SfpBase):
         elif self.index >= SFP_PORT_START and self.index <= SFP_PORT_END:
             port_present_path = self.SFP_PRS_PATH.format(self.index - SFP_PORT_START + 1)
         else:
-		    print("Out of SFP range {} - {}".format(PORT_START, PORT_END))
+            print("Out of SFP range {} - {}".format(PORT_START, PORT_END))
         presence_status_raw = self._api_helper.read_txt_file(port_present_path).rstrip()
         if not presence_status_raw:
             return False

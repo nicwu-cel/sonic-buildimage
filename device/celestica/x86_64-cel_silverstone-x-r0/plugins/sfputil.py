@@ -60,9 +60,7 @@ class SfpUtil(SfpUtilBase):
         try:
             while port >= self.port_start and port <= self.port_end:
                 if self.get_presence(port):
-		    content = content << 1 | 1
-		else:
-		    content = content << 1
+		    content = content | (1 << port)
 
                 port = port + 1
 
@@ -70,7 +68,7 @@ class SfpUtil(SfpUtilBase):
             print "Error: unable to open file: %s" % str(e)
             return False
 
-        return long(str(content), 16)
+        return content 
 
     def get_port_name(self, port_num):
         if port_num in self.osfp_ports:
@@ -127,6 +125,7 @@ class SfpUtil(SfpUtilBase):
 
     def get_low_power_mode(self, port_num):
         # Check for invalid QSFP port_num
+        self.PORT_INFO_PATH = self.QSFP_PORT_INFO_PATH if port_num in self.osfp_ports else self.SFP_PORT_INFO_PATH
         if port_num not in self.osfp_ports:
             return False
 
@@ -149,6 +148,7 @@ class SfpUtil(SfpUtilBase):
 
     def set_low_power_mode(self, port_num, lpmode):
         # Check for invalid QSFP port_num
+        self.PORT_INFO_PATH = self.QSFP_PORT_INFO_PATH if port_num in self.osfp_ports else self.SFP_PORT_INFO_PATH
         if port_num not in self.osfp_ports:
             return False
 
@@ -170,6 +170,7 @@ class SfpUtil(SfpUtilBase):
 
     def reset(self, port_num):
         # Check for invalid QSFP port_num
+        self.PORT_INFO_PATH = self.QSFP_PORT_INFO_PATH if port_num in self.osfp_ports else self.SFP_PORT_INFO_PATH
         if port_num not in self.osfp_ports:
             return False
 
