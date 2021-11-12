@@ -62,7 +62,7 @@ class Fan(FanBase):
         self.is_psu_fan = is_psu_fan
         if self.is_psu_fan:
             self.psu_index = psu_index
-	self._api_helper = APIHelper()
+        self._api_helper = APIHelper()
         self.index = self.fan_tray_index * 2 + self.fan_index
 
 
@@ -103,7 +103,7 @@ class Fan(FanBase):
         # ipmitool raw 0x3a 0x03 0x01 0x01 {register}
         # register = 22 32 42 52 62 72 82
         max_rpm = MAX_INLET if self.fan_index % 2 == 0 else MAX_OUTLET
-		
+
         if self.fan_tray_index < 4:
             fan_tray_index_ = self.fan_tray_index + 1
             status, raw_ss_read = self._api_helper.ipmi_raw(IPMI_SENSOR_NETFN,IPMI_FAN_SPEED_CMD.format(fan_tray_index_))
@@ -118,7 +118,7 @@ class Fan(FanBase):
                 status, raw_ss_read = self._api_helper.ipmi_raw(IPMI_OEM_NETFN,IPMI_GET_PSU1_FAN_SPEED_CMD)
             else:
                 status, raw_ss_read = self._api_helper.ipmi_raw(IPMI_OEM_NETFN,IPMI_GET_PSU2_FAN_SPEED_CMD)
-				
+
             raw_ss_read_reverse = raw_ss_read.split()[::-1]
             data_high = ('{0:0{1}b}'.format(int(raw_ss_read_reverse[0], 16), len(raw_ss_read_reverse[0]) * 4))
             n_bin = data_high[:5]
@@ -128,7 +128,7 @@ class Fan(FanBase):
             y = int(y_bin, 2)
             rpm_speed = float(y * 2 ** n)
             speed = int(rpm_speed / max_rpm * 100)
-			
+
         return speed if speed <= 100 else rpm_speed
 
     def get_target_speed(self):
