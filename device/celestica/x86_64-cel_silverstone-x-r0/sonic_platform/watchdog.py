@@ -6,9 +6,7 @@
 # Watchdog contains an implementation of SONiC Platform Base API
 #
 #############################################################################
-import ctypes
 import os
-import subprocess
 import time
 
 try:
@@ -148,7 +146,7 @@ class Watchdog(WatchdogBase):
         """
 
         ret = WDT_COMMON_ERROR
-        if seconds < 0:
+        if seconds < 0 or seconds > int(0xffffff/1000):
             return ret
 
         try:

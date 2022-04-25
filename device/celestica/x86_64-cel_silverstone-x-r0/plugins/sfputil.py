@@ -25,6 +25,9 @@ class SfpUtil(SfpUtilBase):
     SFP_PORT_INFO_PATH = '/sys/devices/platform/fpga-xcvr'
     PORT_INFO_PATH = QSFP_PORT_INFO_PATH
 	
+    OSFP_INFO_PAGE = 0
+    PAGE_SELETCT_OFFSET = 127
+
     _port_name = ""
     _port_to_eeprom_mapping = {}
     _port_to_i2cbus_mapping = {}
@@ -58,14 +61,13 @@ class SfpUtil(SfpUtilBase):
         content = 0
         port = 0
         try:
-            while port >= self.port_start and port <= self.port_end:
+            while self.port_start <= port <= self.port_end:
                 if self.get_presence(port):
-		    content = content | (1 << port)
-
+                    content = content | (1 << port)
                 port = port + 1
 
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
+        except IOError as error:
+            print("Error: unable to open file: %s" % str(error))
             return False
 
         return content 
@@ -85,16 +87,43 @@ class SfpUtil(SfpUtilBase):
             # Read dom eeprom at addr 0x51
             return self._read_eeprom_devid(port_num, self.DOM_EEPROM_ADDR, 256)
 
+    def __write_eeprom_specific_bytes(self, port_num, offset, write_bytes):
+        """
+        Writes bytes to sfp eeprom
+        Args:
+            offset: integer, 0-0xff
+            bytes : list, [0x12, 0x13, ...], bytes to write
+        Returns:
+            A boolean, True if bytes are written successfully, False if not
+        """
+
+        sysfsfile_eeprom = None
+        sysfs_sfp_i2c_client_eeprom_path = self.port_to_eeprom_mapping[port_num]
+        try:
+            with open(sysfs_sfp_i2c_client_eeprom_path, mode="r+b", buffering=0) as sysfsfile_eeprom:
+                sysfsfile_eeprom.seek(offset)
+                for i in range(len(write_bytes)):
+                    sysfsfile_eeprom.write(chr(write_bytes[i]))
+        except Exception as error:
+            # print(str(error))
+            return False
+
     def __init__(self):
         # Override port_to_eeprom_mapping for class initialization
         eeprom_path = '/sys/bus/i2c/devices/i2c-{0}/{0}-0050/eeprom'
 
-        for x in range(self.PORT_START, self.PORT_END+1):
+        for x in range(self.PORT_START, self.PORT_END + 1):
             self.port_to_i2cbus_mapping[x] = (x + self.EEPROM_OFFSET)
             self.port_to_eeprom_mapping[x] = eeprom_path.format(
                 x + self.EEPROM_OFFSET)
 	    # Get Transceiver status
         self.modprs_register = self.get_transceiver_status
+
+        # All SFPs' eeprom switch to page 0
+        for x in range(self.PORT_START, self.PORT_END + 1):
+            if self.get_presence(x):
+                self.__write_eeprom_specific_bytes(x, self.PAGE_SELETCT_OFFSET, [self.OSFP_INFO_PAGE])
+
         SfpUtilBase.__init__(self)
 
     def get_presence(self, port_num):
@@ -114,7 +143,7 @@ class SfpUtil(SfpUtilBase):
             content = reg_file.readline().rstrip()
             reg_value = int(content)
         except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
+            print ("Error: unable to open file: %s" % str(e))
             return False
 
         # Module present is active low
@@ -133,8 +162,8 @@ class SfpUtil(SfpUtilBase):
             port_name = self.get_port_name(port_num)
             reg_file = open("/".join([self.PORT_INFO_PATH,
                                       port_name, "qsfp_lpmode"]))
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
+        except IOError as error:
+            print ("Error: unable to open file: %s" % str(error))
             return False
 
         # Read status
@@ -157,7 +186,7 @@ class SfpUtil(SfpUtilBase):
             reg_file = open("/".join([self.PORT_INFO_PATH,
                                       port_name, "qsfp_lpmode"]), "r+")
         except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
+            print ("Error: unable to open file: %s" % str(e))
             return False
 
         content = hex(lpmode)
@@ -179,7 +208,7 @@ class SfpUtil(SfpUtilBase):
             reg_file = open("/".join([self.PORT_INFO_PATH,
                                       port_name, "qsfp_reset"]), "w")
         except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
+            print ("Error: unable to open file: %s" % str(e))
             return False
 
         # Convert our register value back to a hex string and write back
@@ -195,7 +224,7 @@ class SfpUtil(SfpUtilBase):
             reg_file = open(
                 "/".join([self.PORT_INFO_PATH, port_name, "qsfp_reset"]), "w")
         except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
+            print ("Error: unable to open file: %s" % str(e))
             return False
 
         reg_file.seek(0)
@@ -216,13 +245,13 @@ class SfpUtil(SfpUtilBase):
         elif timeout > 0:
             timeout = timeout / float(1000) # Convert to secs
         else:
-            print "get_transceiver_change_event:Invalid timeout value", timeout
+            print ("get_transceiver_change_event:Invalid timeout value")
             return False, {}
 
         end_time = start_time + timeout
         if start_time > end_time:
-            print 'get_transceiver_change_event:' \
-                       'time wrap / invalid timeout value', timeout
+            print ('get_transceiver_change_event:' \
+                       'time wrap / invalid timeout value')
 
             return False, {} # Time wrap or possibly incorrect timeout
 
@@ -259,5 +288,5 @@ class SfpUtil(SfpUtilBase):
                     if timeout > 0:
                         time.sleep(timeout)
                     return True, {}
-        print "get_transceiver_change_event: Should not reach here."
+        print ("get_transceiver_change_event: Should not reach here.")
         return False, {}
